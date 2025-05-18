@@ -38,7 +38,7 @@ router.put('/user-profile', isAuthenticated, async (req,res) => {
         const userId = req.userId;
         const {name} = req.body;
         
-        const updatedUser = await prisma.user.findUnique({
+        const updatedUser = await prisma.user.update({
             where:{id: userId},
             data:{name},
             select:{
