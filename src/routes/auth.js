@@ -1,9 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const {PrismaClient} = require('@prisma/client');
-const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
-
-
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../utils/jwt");
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -70,7 +68,7 @@ router.post('/login', async(req,res)=>{
 
         const accesstoken = generateAccessToken(user.id);
         const refreshTokenData = generateRefreshToken();
-
+ 
         await prisma.refreshToken.create({
             data:{
                 token: refreshTokenData.token,
@@ -92,7 +90,7 @@ router.post('/login', async(req,res)=>{
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
             path:'/api/auth/refresh-token',
-            maxAge: 15 * 60 * 1000 
+            maxAge: 7 * 24 * 60 * 60 * 1000 
         });
 
         res.json({
@@ -116,4 +114,109 @@ router.post('/login', async(req,res)=>{
             error: error.message
         })
     }
-})
+});
+
+router.post('/refresh-token', async(req,res)=>{
+    try {
+        const {refreshToken} = req.body;
+        if(!refreshToken){
+            return res.status(401).json({
+                message: 'Refresh token not found'
+            });
+        }
+        verifyRefreshToken(refreshToken);
+
+        const tokenData = await prisma.refreshToken.findFirst({
+            where: {
+                token: refreshToken,
+                isRevoked: false,
+                expiresAt: {
+                    gt: new Date()
+                }
+            },
+            include:{
+                user:true
+            }
+        });
+
+        if(!tokenData){
+            return res.status(401).json({
+                message: 'Invalid or expired refresh token'
+            });
+        }
+
+        const {familyId, userId} = tokenData;
+
+        await prisma.refreshToken.update({
+            where:{id: tokenData.id},
+            data:{isRevoked:true}
+        });
+
+        const accessToken = generateAccessToken(userId);
+        const newRefreshTokenData = generateRefreshToken();
+
+        await prisma.refreshToken.create({
+            data:{
+                token: newRefreshTokenData.token,
+                userId: userId,
+                familyId: familyId,
+                expiresAt: newRefreshTokenData.expiresAt
+            }
+        });
+        res.cookie('accessToken',accessToken,{
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 15 * 60 * 1000
+        });
+        res.cookie('refreshToken',newRefreshTokenData.token,{
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path:'/api/auth/refresh-token',
+            maxAge: 15 * 60 * 1000
+        });
+
+        res.json({
+            message:'Token refreshed successfully',
+            token: {
+                accessToken,
+                refreshToken: newRefreshTokenData.token
+            }
+        });
+    } catch (error) {
+        console.error('Token refresh error:', error);
+        res.clearCookie('accessToken');
+        res.clearCookie('refreshToken');
+        
+        res.status(401).json({message:'Refresh Token failed', error: error.message});
+    }
+});
+
+router.post('/logout', async(req,res) => {
+    try {
+        const {refreshToken} = req.body;
+        if(refreshToken){
+            await prisma.refreshToken.updateMany({
+                where:{
+                    token: refreshToken
+                },
+                data:{
+                    isRevoked:true
+                }
+            });
+        }
+
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+
+    res.json({ message: 'Logout successful' });
+    } catch (error) {
+        console.error('Logout error:',error);
+        res.status(500).json({
+            error: error.message
+        });
+    }
+});
+
+module.exports = router;

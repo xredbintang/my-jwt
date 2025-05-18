@@ -9,13 +9,13 @@ function generateAccessToken(userId){
 
 function generateRefreshToken(){
     return{
-        token : jwt.sign({id: uuidv4()},
-        process.env.JWT_REFRESH_SECRET,{expiresIn:process.env.REFRESH_TOKEN_EXPIRES_IN}
+    token : jwt.sign({id: uuidv4()},
+    process.env.JWT_REFRESH_SECRET,{expiresIn:process.env.REFRESH_TOKEN_EXPIRES_IN}
     ),
     expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)),
     familyId: uuidv4()
     };
-                        }
+}
 
 function verifyAccessToken(token){
     try {
