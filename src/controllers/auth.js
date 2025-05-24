@@ -167,7 +167,7 @@ exports.refreshToken = async (req, res) => {
        
         const newAccessToken = generateAccessToken(userId);
        
-        const newRefreshTokenData = generateRefreshToken(familyId);
+        const newRefreshTokenData = generateRefreshToken(userId,familyId);
 
         await prisma.refreshToken.create({
             data: {
