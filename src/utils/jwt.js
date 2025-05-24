@@ -7,13 +7,18 @@ function generateAccessToken(userId){
     );
 };
 
-function generateRefreshToken(){
+function generateRefreshToken(userId, existingFamilyId = null){
+    const familyId = existingFamilyId || uuidv4();
+    const tokenId = uuidv4();
+
+    const token = jwt.sign({userId, familyId, tokenId},
+        process.env.JWT_REFRESH_SECRET,{expiresIn:process.env.REFRESH_TOKEN_EXPIRES_IN}
+    );
+
     return{
-    token : jwt.sign({id: uuidv4()},
-    process.env.JWT_REFRESH_SECRET,{expiresIn:process.env.REFRESH_TOKEN_EXPIRES_IN}
-    ),
-    expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)),
-    familyId: uuidv4()
+    token : token,
+    expiresAt: new Date(Date.now()+ ms(process.env.REFRESH_TOKEN_EXPIRES_IN)),
+    familyId:familyId
     };
 }
 

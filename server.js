@@ -5,8 +5,8 @@ const cookieParser = require('cookie-parser');
 const { PrismaClient } = require('@prisma/client');
 const ms = require('ms');
 
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
+const authRoutes = require('./src/routes/auth');
+const userRoutes = require('./src/routes/user');
 
 dotenv.config();
 
